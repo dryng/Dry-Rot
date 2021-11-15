@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.optim as optim
-import albumentation as A
+import albumentations as A
 from albumentations.pytorch import ToTensorV2
 from tqdm import tqdm
 from model import UNET
@@ -14,14 +14,14 @@ from utils import (
 )
 
 LEARNING_RATE = 1e-4
-DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
-BATCH_SIZE = 64
-NUM_EPOCHS = 100
-NUM_WORKERS = 2
+DEVICE = "cuda:0" if torch.cuda.is_available() else "cpu"
+BATCH_SIZE = 32
+NUM_EPOCHS = 5
+NUM_WORKERS = 1
 IMAGE_HEIGHT = 256
 IMAGE_WIDTH = 256
-PIN_MEMORY = True # ?
-LOAD_MODEL = False # ?
+PIN_MEMORY = True
+LOAD_MODEL = False
 
 def train(loader, model, optimizer, loss_fn, scaler):
     """[summary]
@@ -37,7 +37,7 @@ def train(loader, model, optimizer, loss_fn, scaler):
     
     for batch_idx, (data, targets) in enumerate(loop):
          data = data.to(device=DEVICE)
-         targets = targets.unsqueeze(1).to(device=DEVICE)
+         targets = targets.permute(0,3,1,2).to(device=DEVICE)
          
          # float16 to speed up training
          with torch.cuda.amp.autocast():
@@ -52,7 +52,7 @@ def train(loader, model, optimizer, loss_fn, scaler):
          loop.set_postfix(loss=loss.item())
 
 def main():
-    train_transform = A.compose(
+    train_transform = A.Compose(
         [
             # data agumentation? -> already have 200K samples
             A.Rotate(limit=35, p=0.5),
@@ -67,7 +67,7 @@ def main():
         ]
     )
     
-    val_transforms = A.compose(
+    val_transforms = A.Compose(
         [
             A.Normalize(
                 mean=[0.0, 0.0, 0.0],
@@ -78,7 +78,9 @@ def main():
         ]
     )
     
+    print(f"Device: {DEVICE}. Device count: {torch.cuda.device_count()}")
     model = UNET(in_channels=3, out_channels=1).to(device=DEVICE)
+    model = nn.DataParallel(model)
     loss_fn = nn.BCEWithLogitsLoss()
     optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
     train_loader, val_loader = get_loaders(
@@ -100,7 +102,7 @@ def main():
             "state_dict": model.state_dict(),
             "optimizer": optimizer.state_dict()
         }
-        save_checkpoint(checkpoint)
+        save_checkpoint(checkpoint, epoch=epoch)
         
         check_accuracy(val_loader, model, device=DEVICE)
         
