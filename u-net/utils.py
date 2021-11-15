@@ -4,7 +4,7 @@ from torch.utils.data import DataLoader
 from torchmetrics import IoU
 from dataset import DryRotDataset
 
-def save_checkpoint(state, filename="unet_checkpoint.pth.tar"):
+def save_checkpoint(state, epoch, filename="unet_checkpoint.pth.tar", folder="model_checkpoints"):
     """[summary]
 
     Args:
@@ -12,6 +12,7 @@ def save_checkpoint(state, filename="unet_checkpoint.pth.tar"):
         filename (str, optional): [description]. Defaults to "unet_checkpoint.pth.tar".
     """
     print("=> Saving checkpoint")
+    filename = folder + "\\" + epoch + "\\" + filename
     torch.save(state, filename)
 
 def load_checkpoint(checkpoint, model):
@@ -28,7 +29,7 @@ def get_loaders(
     batch_size,
     train_transforms,
     val_transforms,
-    num_workers=2,
+    num_workers=1,
     pin_memory=True,
     path=None,
 ):
@@ -47,25 +48,25 @@ def get_loaders(
     """
     if path is not None:
         train_dataset = DryRotDataset(
-            0,
-            path,
-            train_transforms
+            dset=0,
+            path=path,
+            transform=train_transforms
         )
         
         val_dataset = DryRotDataset(
-            1,
-            path,
-            val_transforms
+            dset=1,
+            path=path,
+            transform=val_transforms
         )
     else:
         train_dataset = DryRotDataset(
-            0,
-            train_transforms
+            dset=0,
+            transform=train_transforms
         )
         
         val_dataset = DryRotDataset(
-            1,
-            val_transforms
+            dset=1,
+            transform=val_transforms
         )
         
     train_loader = DataLoader(
@@ -103,9 +104,9 @@ def check_accuracy(loader, model, device="cuda"):
     model.eval()
     
     with torch.no_grad():
-        for data, targets in loader:
+        for _, (data, targets) in enumerate(loader):
             data = data.to(device)
-            targets = targets.unsqueeze(1).to(device)
+            targets = targets.permite(0,3,1,2).to(device)
             predictions = torch.sigmoid(model(data))
             predictions = (predictions > 0.5).float()
             num_correct += (predictions == targets).sum()
@@ -140,5 +141,6 @@ def save_predictions_to_folder(loader, model, epoch, max=None, folder="model_pre
             predictions = torch.sigmoid(model(data))
             predictions = (predictions > 0.5).float()
         torchvision.utils.save_image(predictions, f"{folder}/{epoch}/pred_{idx}.png")
-        torchvision.utils.save_image(targets.unsqueeze(1), f"{folder}/{epoch}/target_{idx}.png")
+        torchvision.utils.save_image(targets.permute(0,3,1,2), f"{folder}/{epoch}/target_{idx}.png")
+    model.train()
         
