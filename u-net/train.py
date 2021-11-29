@@ -4,7 +4,7 @@ import torch.optim as optim
 import albumentations as A
 from albumentations.pytorch import ToTensorV2
 from tqdm import tqdm
-from model import UNET
+from model import UNET, DiceLoss
 from utils import (
     load_checkpoint,
     save_checkpoint,
@@ -13,15 +13,16 @@ from utils import (
     save_predictions_to_folder
 )
 
-LEARNING_RATE = 1e-4
-DEVICE = "cuda:0" if torch.cuda.is_available() else "cpu"
-BATCH_SIZE = 32
-NUM_EPOCHS = 5
+LEARNING_RATE = 3e-5  # 1e-4 from 35 (34 from 0) on
+DEVICE = "cuda:1" if torch.cuda.is_available() else "cpu"
+BATCH_SIZE = 1 # 32  # change back to train
+NUM_EPOCHS = 40  # change back to 20
 NUM_WORKERS = 1
 IMAGE_HEIGHT = 256
 IMAGE_WIDTH = 256
 PIN_MEMORY = True
-LOAD_MODEL = False
+LOAD_MODEL = True
+DICE_LOSS = True
 
 def train(loader, model, optimizer, loss_fn, scaler):
     """[summary]
@@ -80,8 +81,10 @@ def main():
     
     print(f"Device: {DEVICE}. Device count: {torch.cuda.device_count()}")
     model = UNET(in_channels=3, out_channels=1).to(device=DEVICE)
-    model = nn.DataParallel(model)
-    loss_fn = nn.BCEWithLogitsLoss()
+    if DICE_LOSS:
+        loss_fn = DiceLoss()
+    else:
+        loss_fn = nn.BCEWithLogitsLoss()
     optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
     train_loader, val_loader = get_loaders(
         BATCH_SIZE,
@@ -92,22 +95,28 @@ def main():
     )
     
     if LOAD_MODEL:
-        load_checkpoint(torch.load("unet_checkpoint.pth.tar"), model)
+        load_checkpoint(torch.load("model_checkpoints_small/DICE/DICE_epoch_39_unet_checkpoint.pth.tar"), model)
+        # Remove for training
+        print(f"=> saving predictin images to folder")
+        save_predictions_to_folder(val_loader, model, epoch=40, loss="DICE", max=15, device=DEVICE)
+        return
     scaler = torch.cuda.amp.GradScaler() # mixed percision for faster training 
     
-    for epoch in range(NUM_EPOCHS):
+    for epoch in range(35, NUM_EPOCHS):
         train(train_loader, model, optimizer, loss_fn, scaler)
         
         checkpoint = {
             "state_dict": model.state_dict(),
             "optimizer": optimizer.state_dict()
         }
-        save_checkpoint(checkpoint, epoch=epoch)
+        if DICE_LOSS:
+            save_checkpoint(checkpoint, epoch=epoch, loss="DICE", folder="model_checkpoints_small")
+        else:
+            save_checkpoint(checkpoint, epoch=epoch, loss="BCE", folder="model_checkpoints_small")
         
         check_accuracy(val_loader, model, device=DEVICE)
         
-        save_predictions_to_folder(val_loader, model, epoch, max=20, device=DEVICE)
-    
+        #save_predictions_to_folder(val_loader, model, epoch, max=25, device=DEVICE)
 
 if __name__ == "__main__":
     main()

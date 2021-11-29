@@ -40,7 +40,7 @@ class UNET(nn.Module):
         features=[64, 128, 256, 512]
         ):
         super(UNET, self).__init__()
-        self.encode = nn.ModuleList() # alow to do eval etc - look into it
+        self.encode = nn.ModuleList() # allow to do eval etc - look into it
         self.decode = nn.ModuleList()
         self.pool = nn.MaxPool2d(kernel_size=2, stride=2)
         
@@ -91,6 +91,25 @@ class UNET(nn.Module):
             
         return self.final_conv(x)
     
+
+class DiceLoss(nn.Module):
+    """[summary]
+        Dice Score Loss Function
+        Taken from: https://www.kaggle.com/bigironsphere/loss-function-library-keras-pytorch
+    Args:
+        
+    """
+    def __init__(self, weight=None, size_average=True):
+        super(DiceLoss, self).__init__()
+
+    def forward(self, inputs, targets, smooth=1):
+        inputs = torch.sigmoid(inputs)      
+        inputs = inputs.view(-1)
+        targets = targets.view(-1)
+        intersection = (inputs * targets).sum()                            
+        dice = (2.*intersection + smooth)/(inputs.sum() + targets.sum() + smooth)  
+        
+        return 1 - dice
     
 
 def test_shape():
