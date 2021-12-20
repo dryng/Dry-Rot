@@ -13,10 +13,10 @@ from utils import (
     save_predictions_to_folder
 )
 
-LEARNING_RATE = 3e-5  # 1e-4 from 35 (34 from 0) on
+LEARNING_RATE = 1e-4 # 3e-5 from 35 (34 from 0) on
 DEVICE = "cuda:1" if torch.cuda.is_available() else "cpu"
 BATCH_SIZE = 1 # 32  # change back to train
-NUM_EPOCHS = 40  # change back to 20
+NUM_EPOCHS = 20  # change back to 20
 NUM_WORKERS = 1
 IMAGE_HEIGHT = 256
 IMAGE_WIDTH = 256
@@ -95,14 +95,14 @@ def main():
     )
     
     if LOAD_MODEL:
-        load_checkpoint(torch.load("model_checkpoints_small/DICE/DICE_epoch_39_unet_checkpoint.pth.tar"), model)
+        load_checkpoint(torch.load("model_checkpoints_small/labels_v2/1e4/DICE/DICE_epoch_19_unet_checkpoint.pth.tar"), model)
         # Remove for training
         print(f"=> saving predictin images to folder")
-        save_predictions_to_folder(val_loader, model, epoch=40, loss="DICE", max=15, device=DEVICE)
+        save_predictions_to_folder(val_loader, model, epoch=20, folder="model_predictions/labels_v2", loss="DICE", max=50, device=DEVICE)
         return
     scaler = torch.cuda.amp.GradScaler() # mixed percision for faster training 
     
-    for epoch in range(35, NUM_EPOCHS):
+    for epoch in range(NUM_EPOCHS):
         train(train_loader, model, optimizer, loss_fn, scaler)
         
         checkpoint = {
@@ -110,9 +110,9 @@ def main():
             "optimizer": optimizer.state_dict()
         }
         if DICE_LOSS:
-            save_checkpoint(checkpoint, epoch=epoch, loss="DICE", folder="model_checkpoints_small")
+            save_checkpoint(checkpoint, epoch=epoch, loss="DICE", folder="model_checkpoints_small/labels_v2/1e4")
         else:
-            save_checkpoint(checkpoint, epoch=epoch, loss="BCE", folder="model_checkpoints_small")
+            save_checkpoint(checkpoint, epoch=epoch, loss="BCE", folder="model_checkpoints_small/labels_v2")
         
         check_accuracy(val_loader, model, device=DEVICE)
         

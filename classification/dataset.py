@@ -1,3 +1,4 @@
+import torch
 import os
 import numpy as np
 from PIL import Image
@@ -11,7 +12,7 @@ class DryRotDataset(Dataset):
         dset: bit representing train (0), val (1), or test (2) dataset
         path: path to h5 file containing the data
     """
-    def __init__(self, dset=0, path='/work/dryngler/dry_rot/datasets/small_segmentation_dataset_v2.h5', transform=None):
+    def __init__(self, dset=0, path='/work/dryngler/dry_rot/datasets/small_classification_dataset_v2.h5', transform=None):
         self.dset = dset
         self.path = path
         self.transform = transform
@@ -29,18 +30,19 @@ class DryRotDataset(Dataset):
         with h5py.File(self.path) as f:
             if self.dset == 0:
                 image = np.array(f["small_X_train"][idx])
-                mask = np.array(f["small_Y_train"][idx], dtype='f')
+                target = np.array(f["small_Y_train"][idx], dtype='f')
             elif self.dset == 1:
                 image = np.array(f["small_X_val"][idx])
-                mask = np.array(f["small_Y_val"][idx], dtype='f')
+                target = np.array(f["small_Y_val"][idx], dtype='f')
             elif self.dset == 2:
                 image = np.array(f["small_X_test"][idx])
-                mask = np.array(f["small_Y_test"][idx], dtype='f')
+                target = np.array(f["small_Y_test"][idx], dtype='f')
         
         if self.transform is not None:
-            augmentations = self.transform(image=image, mask=mask)
+            augmentations = self.transform(image=image)
             image = augmentations["image"]
-            mask = augmentations["mask"]
+
+        target = torch.from_numpy(target)
         
-        return image, mask
+        return image, target
         

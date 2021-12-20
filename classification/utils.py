@@ -6,7 +6,7 @@ from torch.utils.data import DataLoader
 from torchmetrics import IoU
 from dataset import DryRotDataset
 
-def save_checkpoint(state, epoch, loss, filename="unet_checkpoint.pth.tar", folder="model_checkpoints"):
+def save_checkpoint(state, epoch, model, filename="checkpoint.pth.tar", folder="model_checkpoints"):
     """[summary]
 
     Args:
@@ -14,7 +14,7 @@ def save_checkpoint(state, epoch, loss, filename="unet_checkpoint.pth.tar", fold
         filename (str, optional): [description]. Defaults to "unet_checkpoint.pth.tar".
     """
     print("=> Saving checkpoint")
-    filename = f"{folder}/{loss}/{loss}_epoch_{epoch}_{filename}"
+    filename = f"{folder}/{model}/epoch_{epoch}_{filename}"
     torch.save(state, filename)
 
 def load_checkpoint(checkpoint, model):
@@ -89,40 +89,35 @@ def get_loaders(
     
     return train_loader, val_loader
 
-def check_accuracy(loader, model, device="cuda"):
+def check_accuracy(loader, model, batchsize, device="cuda"):
     """[summary]
-    dice_score: better measure of accuracy.
+    Binary Classification Accuracy
 
     Args:
         loader ([type]): [description]
         model ([type]): [description]
         device (str, optional): [description]. Defaults to "cuda".
     """
-    num_correct = 0
-    num_pixels = 0
-    dice_score = 0
-    ioU = IoU(num_classes=1)
-    ioU_avg = 0
     model.eval()
-    
+    num_correct = 0
+    length = len(loader) * batchsize
+        
     with torch.no_grad():
         for _, (data, targets) in enumerate(loader):
             data = data.to(device)
-            targets = targets.permute(0,3,1,2).to(device)
+            targets = targets.unsqueeze(1).to(device)
             predictions = torch.sigmoid(model(data))
             predictions = (predictions > 0.5).float()
             num_correct += (predictions == targets).sum()
-            num_pixels += torch.numel(predictions)
-            dice_score += (2 * (predictions * targets).sum()) / (
-                (predictions + targets).sum() + 1e-8
-            )
-            #ioU_avg += ioU(predictions, targets)
+    
+    accuracy = num_correct/length*100
+
     print(
-        f"=> {num_correct}/{num_pixels} correct. Accuracy: {num_correct/num_pixels*100:.2f}"
+        f"=> {num_correct}/{length} correct. Accuracy: {accuracy:.2f}"
     )
-    print(f"Dice score: {dice_score/len(loader)}")
-    print(f"IoU: {ioU_avg/len(loader)}")
     model.train()
+
+    return accuracy
 
 def plot_losses(train_losses, eval_losses):
     plt.plot(train_losses, '-o')
@@ -154,10 +149,6 @@ def save_predictions_to_folder(loader, model, epoch, max=None, folder="model_pre
             predictions = torch.sigmoid(model(data))
             predictions = (predictions > 0.5).float()
 
-        #image_target_combined = overlay(data.detach().clone().cpu().numpy(), targets.detach().clone().cpu().numpy(), color=(0,0,0), alpha=1)
-        #image_mask_combined = overlay(image_target_combined, predictions.detach().clone().cpu().numpy())
-        #torchvision.utils.save_image(torch.from_numpy(image_mask_combined), f"{folder}/{loss}/{epoch}/target_overlay_{idx}.png")
-
         image_mask_combined = overlay(data.detach().clone().cpu().numpy(), predictions.detach().clone().cpu().numpy(), color=(255,0,0), alpha=.5)
         torchvision.utils.save_image(torch.from_numpy(image_mask_combined), f"{folder}/{loss}/{epoch}/overlay_{idx}.png")
 
@@ -165,44 +156,6 @@ def save_predictions_to_folder(loader, model, epoch, max=None, folder="model_pre
         torchvision.utils.save_image(predictions, f"{folder}/{loss}/{epoch}/pred_{idx}.png")
         torchvision.utils.save_image(targets.permute(0,3,1,2), f"{folder}/{loss}/{epoch}/target_{idx}.png")
 
-        #grid = torchvision.utils.make_grid([data.cpu(), torch.from_numpy(image_mask_combined)], nrow=2)
-        #torchvision.utils.save_image(grid, f"{folder}/{epoch}/grid_{idx}.png")
-
     model.train()
 
-
-def overlay(
-    image,
-    mask,
-    color=(255, 0, 0),
-    alpha=0.5, 
-    resize=None
-):
-    """Combines image and its segmentation mask into a single image.
-
-    https://www.kaggle.com/purplejester/showing-samples-with-segmentation-mask-overlay
-    
-    Params:
-        image: Training image.
-        mask: Segmentation mask.
-        color: Color for segmentation mask rendering.
-        alpha: Segmentation mask's transparency.
-        resize: If provided, both image and its mask are resized before blending them together.
-    
-    Returns:
-        image_combined: The combined image.
-        
-    """
-    color = np.asarray(color).reshape(3, 1, 1)
-    colored_mask = np.expand_dims(mask, 0).repeat(3, axis=0)
-    masked = np.ma.MaskedArray(image, mask=colored_mask, fill_value=color)
-    image_overlay = masked.filled()
-    
-    if resize is not None:
-        image = cv.resize(image.transpose(1, 2, 0), resize)
-        image_overlay = cv.resize(image_overlay.transpose(1, 2, 0), resize)
-    
-    image_combined = cv.addWeighted(image, 1 - alpha, image_overlay, alpha, 0)
-    
-    return image_combined
         
