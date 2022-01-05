@@ -1,5 +1,5 @@
 Full Classification Dataset
-Device: cuda. Device count: 2
+
 Model: efficient_net_b3
 => Loading checkpoint
 => Checking metrics
@@ -9,9 +9,15 @@ Model: efficient_net_b3
 => F1-Score (harmonic mean): 0.643
 
 Small Classification Dataset
+
 Device: cuda. Device count: 2
 Model: custom_mobilenet_v3_small
 => Loading checkpoint
+=> Checking metrics
+=> Accuracy: 13416/15680 => 85.561
+=> Precision: 7671/8907 => 0.861
+=> Recall: 7671/8689 => 0.883
+=> F1-Score (harmonic mean): 0.872
 
 Device: cuda. Device count: 2
 Model: custom_mobilenet_v3_small_untrained
@@ -30,26 +36,6 @@ Model: efficient_net_b3
 => Precision: 7729/8788 => 0.879
 => Recall: 7729/8689 => 0.890
 => F1-Score (harmonic mean): 0.884
-
-Device: cuda. Device count: 2
-Model: efficient_net_b4
-=> Loading checkpoint
-
-Device: cuda. Device count: 2
-Model: mobilenet_v3_large
-=> Loading checkpoint
-
-Device: cuda. Device count: 2
-Model: mobilenet_v3_small
-=> Loading checkpoint
-Device: cuda. Device count: 2
-Model: custom_mobilenet_v3_small
-=> Loading checkpoint
-=> Checking metrics
-=> Accuracy: 13416/15680 => 85.561
-=> Precision: 7671/8907 => 0.861
-=> Recall: 7671/8689 => 0.883
-=> F1-Score (harmonic mean): 0.872
 
 Device: cuda. Device count: 2
 Model: efficient_net_b4
