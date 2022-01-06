@@ -13,13 +13,13 @@ class SegmentationModel:
     Methods:
         prediction() : pass image to model to generate mask for
     """
-    def __init__(self, model_name="u-net"):
+    def __init__(self, model_name="u-net",checkpoints_path=""):
         if model_name != "u-net":
             raise ValueError("Currently only u-net is supported for segmentation")
 
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.model = unet.UNET(in_channels=3, out_channels=1).to(self.device)
-        load_checkpoint(torch.load("checkpoints/unet.pth.tar"), self.model)
+        load_checkpoint(torch.load(f"{checkpoints_path}checkpoints/unet.pth.tar"), self.model)
     
     def predict(self, image):
         """[summary]
@@ -56,36 +56,36 @@ class ClassificationModel:
     Methods:
         prediction() : pass image to model to predict
     """
-    def __init__(self, model_name):
+    def __init__(self, model_name, checkpoints_path=""):
         if model_name == "resnet_18":
             model = models.resnet18(pretrained=True)
             num_ftrs = model.fc.in_features
             model.fc = nn.Linear(num_ftrs, 1)
-            load_checkpoint(torch.load("checkpoints/resnet_18.pth.tar"), model)
+            load_checkpoint(torch.load(f"{checkpoints_path}checkpoints/resnet_18.pth.tar"), model)
         elif model_name == "mobilenet_v3_small":
             model = models.mobilenet_v3_small(pretrained=True)
             num_ftrs = model.classifier[3].in_features
             model.classifier[3] = nn.Linear(num_ftrs, 1)
-            load_checkpoint(torch.load("checkpoints/mobilenet_v3_small.pth.tar"), model)
+            load_checkpoint(torch.load(f"{checkpoints_path}checkpoints/mobilenet_v3_small.pth.tar"), model)
         elif model_name == "custom_mobilenet_v3_small":
             pretrained = models.mobilenet_v3_small(pretrained=True)
             model = customMNSmall(pretrained)
-            load_checkpoint(torch.load("checkpoints/custom_mobilenet_v3_small.pth.tar"), model)
+            load_checkpoint(torch.load(f"{checkpoints_path}checkpoints/custom_mobilenet_v3_small.pth.tar"), model)
         elif model_name == "mobilenet_v3_small":
             model = models.mobilenet_v3_large(pretrained=True)
             num_ftrs = model.classifier[3].in_features
             model.classifier[3] = nn.Linear(num_ftrs, 1)
-            load_checkpoint(torch.load("checkpoints/mobilenet_v3_small.pth.tar"), model)
+            load_checkpoint(torch.load(f"{checkpoints_path}checkpoints/mobilenet_v3_small.pth.tar"), model)
         elif model_name == "efficient_net_b3":
             model = models.efficientnet_b3(pretrained=True)
             num_ftrs = model.classifier[1].in_features
             model.classifier[1] = nn.Linear(num_ftrs, 1)
-            load_checkpoint(torch.load("checkpoints/efficient_net_b3.pth.tar"), model)
+            load_checkpoint(torch.load(f"{checkpoints_path}checkpoints/efficient_net_b3.pth.tar"), model)
         elif model_name == "efficient_net_b4":
             model = models.efficientnet_b4(pretrained=True)
             num_ftrs = model.classifier[1].in_features
             model.classifier[1] = nn.Linear(num_ftrs, 1)
-            load_checkpoint(torch.load("checkpoints/efficient_net_b4.pth.tar"), model)
+            load_checkpoint(torch.load(f"{checkpoints_path}checkpoints/efficient_net_b4.pth.tar"), model)
         else:
             raise ValueError(f"Unsupported Model: {model_name}")
 
