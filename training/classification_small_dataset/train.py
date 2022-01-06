@@ -146,6 +146,7 @@ def main():
         # collapsing neurons to fast i think -> add more layers at end 
         model = models.mobilenet_v3_large(pretrained=True)
         num_ftrs = model.classifier[3].in_features
+        print(f"NUM FTRS: {num_ftrs}")
         model.classifier[3] = nn.Linear(num_ftrs, 1)
     elif MODEL == "efficient_net_b3":
         model = models.efficientnet_b3(pretrained=True)

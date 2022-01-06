@@ -29,13 +29,14 @@ class SegmentationModel:
             image (numpy array): image to generate mask for
         """
         data = numpy_to_torch(image)
-
+        
         self.model.eval()
         with torch.no_grad():
             data = data.to(self.device)
             data = data.unsqueeze(0).to(self.device)
             prediction = torch.sigmoid(self.model(data))
             prediction = (prediction > 0.5).float()
+            prediction = prediction.permute(0,2,3,1)
             prediction = prediction.squeeze(0).cpu().numpy()
         
         return prediction
