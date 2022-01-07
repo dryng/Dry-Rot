@@ -1,5 +1,6 @@
 import torch
-
+import albumentations as A
+from albumentations.pytorch import ToTensorV2
 
 def load_checkpoint(checkpoint, model):
     """[summary]
@@ -20,13 +21,16 @@ def numpy_to_torch(data):
     Args:
         data (numpy array): numpy array to convert to torch
     """
-    data = torch.from_numpy(data)
-
-    # (h, w, c) 
-    if data.shape[2] == 3:
-        data = data.permute(2, 0, 1)
-    
-    if data.shape[0] != 3:
-        raise ValueError("Error: Incorrect Image dimensions. Should be either (H, W, C) or (C, H, W)")
+    transform = A.Compose(
+        [
+            A.Normalize(
+                mean=[0.0, 0.0, 0.0],
+                std=[1.0, 1.0, 1.0],
+                max_pixel_value=255.0  
+            ),
+            ToTensorV2()
+        ]
+    )
+    data = transform(image=data)["image"]
 
     return data.float()
