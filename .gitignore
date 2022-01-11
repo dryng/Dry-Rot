@@ -1,2 +1,10 @@
 inference/checkpoints/
 *.pyc
+*.txt
+runs/
+classification_small_dataset/model_checkpoints/
+classification_small_dataset/runs
+classification_small_dataset/*.txt
+segmentation_small_dataset/model_checkpoints/
+segmentation_small_dataset/runs
+segmentation_small_dataset/*.txt

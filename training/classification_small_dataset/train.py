@@ -1,10 +1,14 @@
+import os
 import sys
 import json
 import torch
 import torch.nn as nn
 import torch.optim as optim
 import torchvision.models as models
+import numpy as np
 import albumentations as A
+from PIL import Image
+from torchsummary import summary    
 from albumentations.pytorch import ToTensorV2
 from tqdm import tqdm
 from custom_mobilenet_v3_small import customMNSmall
@@ -17,12 +21,16 @@ from utils import (
 )
 from torch.utils.tensorboard import SummaryWriter
 
+sys.path.append('../utils')
+
+from earlyStopping import EarlyStopping
+
 GPU_NUM = sys.argv[1]
 LEARNING_RATE = 1e-3
 DEVICE = f"cuda:{GPU_NUM}" if torch.cuda.is_available() else "cpu"  #cuda:1
 BATCH_SIZE = 32
-START_EPOCH = 0 # 0
-NUM_EPOCHS = 20
+START_EPOCH = 0 
+NUM_EPOCHS = 100
 NUM_WORKERS = 4
 IMAGE_HEIGHT = 256
 IMAGE_WIDTH = 256
@@ -99,6 +107,7 @@ def eval(loader, model, loss_fn, epoch):
     
     return running_loss / length
 
+
 def main():
     train_transform = A.Compose(
         [
@@ -160,6 +169,8 @@ def main():
     
     # model = nn.DataParallel(model)
     model = model.to(device=DEVICE)
+    # print(summary(model, (3, 256, 256), BATCH_SIZE))
+    # return
     loss_fn = nn.BCEWithLogitsLoss()
     optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
     train_loader, val_loader = get_loaders(
@@ -183,7 +194,15 @@ def main():
     train_accuracies = []
     val_losses = []
     val_accuracies = []
-    
+    best_epoch = None
+    global_val_loss = float('inf')
+    earlyStopping = EarlyStopping(patience=10)
+
+    images, targets = iter(train_loader).next()
+    images = images.to(device=DEVICE)
+    writer.add_graph(model, images)
+    writer.close()
+
     for epoch in range(START_EPOCH, START_EPOCH + NUM_EPOCHS):
         train_loss = train(train_loader, model, optimizer, loss_fn, scaler, epoch)
         train_losses.append(train_loss)
@@ -197,8 +216,8 @@ def main():
             "state_dict": model.state_dict(),
             "optimizer": optimizer.state_dict()
         }
-        
-        save_checkpoint(checkpoint, epoch=epoch, model=MODEL, folder="model_checkpoints_small")
+
+        save_checkpoint(checkpoint, epoch=epoch, model=MODEL, folder="/space/dryngler/classification/model_checkpoints")
 
         val_loss = eval(val_loader, model, loss_fn, epoch)
         val_losses.append(val_loss)
@@ -207,12 +226,30 @@ def main():
         val_accuracy, _, _, _ = check_metrics(val_loader, model, BATCH_SIZE, device=DEVICE)
         val_accuracies.append(val_accuracy.cpu().numpy().tolist())
         writer.add_scalar('Validation Accuracy', val_accuracy, global_step=epoch)
+
+        # if val_loss < global_val_loss:
+            # best_epoch = epoch
+            # save_checkpoint(checkpoint, epoch=epoch, model=MODEL, folder="model_checkpoints")
         
-        #save_predictions_to_folder(val_loader, model, epoch, max=25, device=DEVICE)
+        if earlyStopping.training_complete(val_loss):
+           best_epoch = earlyStopping.best_epoch
+           old_fn = f"model_checkpoints/{MODEL}/epoch_{best_epoch}_checkpoint.pth.tar"
+           new_fn = f"model_checkpoints/{MODEL}/BEST_EPOCH_{best_epoch}_checkpoint.pth.tar"
+           # os.rename(old_fn, new_fn)
+           print(f'Done training at epoch: {epoch}')
+           print(f'Best Epoch: {earlyStopping.best_epoch}')
+           break
     
+    # only save up to best epoch
+    # if best_epoch is not None:
+        # train_losses = train_losses[:best_epoch + 1]
+        # train_accuracies = train_accuracies[:best_epoch + 1]
+        # val_losses = val_losses[:best_epoch + 1]
+        # val_accuracies = val_accuracies[:best_epoch + 1]
     _, precision, recall, f1_score = check_metrics(val_loader, model, BATCH_SIZE, device=DEVICE)
 
     metrics = {
+        "best_epoch": best_epoch,
         "train_losses" : train_losses,
         "train_accuracies" : train_accuracies,
         "val_losses" : val_losses,
