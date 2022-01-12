@@ -3,6 +3,7 @@ import os
 import multiprocessing
 import numpy as np
 import sys
+from PIL import Image
 
 sys.path.append('../inference')
 
@@ -12,7 +13,7 @@ def generate_patches(img_address,mask_address,width=256,height=256):
 
     annotated_patches = {}
 
-    img = cv2.imread(img_address)
+    img = np.asarray(Image.open(img_address))
     mask = cv2.imread(mask_address)
     mask = cv2.cvtColor(mask,cv2.COLOR_BGR2GRAY)
 
