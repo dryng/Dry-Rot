@@ -56,14 +56,15 @@ def quantify_single_image(args):
 
     for i in patches:
         gt_mask = patches[i]['mask']
-        segmentation_mask = segmentation.predict(patches[i]['patch']).squeeze().astype('uint8')
+        pred = segmentation.predict(patches[i]['patch'])     
+        segmentation_mask = pred.squeeze().astype('uint8')
         gt_dryrot_count+=np.count_nonzero(gt_mask)
         pr_dryrot_count+=np.count_nonzero(segmentation_mask)
         
     gt_quantification = gt_dryrot_count/total
     pr_quantification = pr_dryrot_count/total
 
-    print(gt_quantification,pr_quantification)
+    return [gt_quantification,pr_quantification]
     
 def quantify_all_images(path_patches,path_images,path_image_labels):
     files = os.listdir(path_patches)
@@ -76,6 +77,10 @@ def quantify_all_images(path_patches,path_images,path_image_labels):
             break
     
     with multiprocessing.Pool(int(multiprocessing.cpu_count()/2)) as pool:
-        result = pool.map(quantify_single_image,list_args)
+        result = np.array(pool.map(quantify_single_image,list_args))
+
+    # calculate IOU
+
+    print(f"Correlation between the Ground Truth and prediction quantification values: {np.corrcoef(result[:,0],result[:,1])[0,1]}")
         
 quantify_all_images('/space/ariyanzarei/dry_rot/datasets/2021-12-05_labeling/test/images','/space/ariyanzarei/dry_rot/raw_data/dry_rot_all_images','/space/ariyanzarei/dry_rot/raw_data/dry_rot_all_labels')
