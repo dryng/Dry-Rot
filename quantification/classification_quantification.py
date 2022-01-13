@@ -63,6 +63,10 @@ def quantify_single_image(args):
     pr_dryrot_count = 0.0
 
     for i in patches:
+        
+        if patches[i]['mask'].shape[0] != patches[i]['row_end'] - patches[i]['row_start'] or patches[i]['mask'].shape[1] != patches[i]['col_end'] - patches[i]['col_start']:
+            continue
+
         if mask_contains_dryrot(patches[i]['mask']):
             gt_dryrot_count+=1
             GT_mask = cv2.rectangle(GT_mask,(patches[i]['col_start'],patches[i]['row_start']),(patches[i]['col_end'],patches[i]['row_end']),(200,0,0),-1)
@@ -105,8 +109,8 @@ def quantify_all_images(path_patches,path_images,path_image_labels,save_path,mod
     list_args = []
     for file in files:
         list_args.append((os.path.join(path_images,f"{file}.JPG"),os.path.join(path_image_labels,f"{file}.png"),model,save_path))
-        if len(list_args)>5:
-            break
+        # if len(list_args)>5:
+        #     break
     
     # with multiprocessing.Pool(int(multiprocessing.cpu_count())) as pool:
     #     result = np.array(pool.map(quantify_single_image,list_args))
