@@ -5,7 +5,7 @@ import torch.optim as optim
 import albumentations as A
 from albumentations.pytorch import ToTensorV2
 from tqdm import tqdm
-from model import UNET, DiceLoss
+from model import UNET,TGIUNET, DiceLoss
 from utils import (
     load_checkpoint,
     save_checkpoint,
@@ -17,8 +17,8 @@ from torch.utils.tensorboard import SummaryWriter
 
 LEARNING_RATE = 1e-4 # 3e-5 from 35 (34 from 0) on
 DEVICE = "cuda:1" if torch.cuda.is_available() else "cpu"
-BATCH_SIZE = 32 # 32  # change back to train
-NUM_EPOCHS = 20  # change back to 20
+BATCH_SIZE = 2 # 32  # change back to train
+NUM_EPOCHS = 1  # change back to 20
 NUM_WORKERS = 4
 IMAGE_HEIGHT = 256
 IMAGE_WIDTH = 256
@@ -120,7 +120,9 @@ def main():
     )
     
     print(f"Device: {DEVICE}. Device count: {torch.cuda.device_count()}")
-    model = UNET(in_channels=3, out_channels=1).to(device=DEVICE)
+    # model = UNET(in_channels=3, out_channels=1).to(device=DEVICE)
+    model = TGIUNET(in_channels=3, out_channels=1).to(device=DEVICE)
+
     if DICE_LOSS:
         loss_fn = DiceLoss()
     else:

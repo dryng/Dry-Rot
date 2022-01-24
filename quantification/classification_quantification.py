@@ -69,12 +69,12 @@ def quantify_single_image(args):
 
         if mask_contains_dryrot(patches[i]['mask']):
             gt_dryrot_count+=1
-            GT_mask = cv2.rectangle(GT_mask,(patches[i]['col_start'],patches[i]['row_start']),(patches[i]['col_end'],patches[i]['row_end']),(200,0,0),-1)
+            GT_mask = cv2.rectangle(GT_mask,(patches[i]['col_start'],patches[i]['row_start']),(patches[i]['col_end'],patches[i]['row_end']),(0,255,0),-1)
         
         classification_prediction = classification.predict(patches[i]['patch'])
         if classification_prediction == 1:
             pr_dryrot_count+=1
-            PR_mask = cv2.rectangle(PR_mask,(patches[i]['col_start'],patches[i]['row_start']),(patches[i]['col_end'],patches[i]['row_end']),(200,0,0),-1)
+            PR_mask = cv2.rectangle(PR_mask,(patches[i]['col_start'],patches[i]['row_start']),(patches[i]['col_end'],patches[i]['row_end']),(0,0,255),-1)
 
     alpha = 0.4
     
@@ -126,7 +126,7 @@ def quantify_all_images(path_patches,path_images,path_image_labels,save_path,mod
 
     print(f"Correlation between the Ground Truth and prediction quantification values: {np.corrcoef(result_array[:,0],result_array[:,1])[0,1]}")
 
-quantify_all_images('/space/ariyanzarei/dry_rot/datasets/2021-12-05_labeling/test/images',\
+quantify_all_images('/space/ariyanzarei/dry_rot/datasets/2022-01-13_labeling/test/images',\
     '/space/ariyanzarei/dry_rot/raw_data/dry_rot_all_images',\
     '/space/ariyanzarei/dry_rot/raw_data/dry_rot_all_labels',\
     '/space/ariyanzarei/dry_rot/image_results/classification',\

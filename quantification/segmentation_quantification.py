@@ -118,6 +118,8 @@ def quantify_all_images(path_patches,path_images,path_image_labels,save_path,mod
 
     list_args = []
     for file in files:
+        if file != "IMG_0333":
+            continue
         list_args.append((os.path.join(path_images,f"{file}.JPG"),os.path.join(path_image_labels,f"{file}.png"),model,save_path))
         # if len(list_args)>5:
         #     break
@@ -136,7 +138,7 @@ def quantify_all_images(path_patches,path_images,path_image_labels,save_path,mod
     print(f"Correlation between the Ground Truth and prediction quantification values: {np.corrcoef(result_array[:,0],result_array[:,1])[0,1]}")
     print(f"IoU between the Ground Truth and prediction masks: {np.mean(result_array[:,2])}")
         
-quantify_all_images('/space/ariyanzarei/dry_rot/datasets/2021-12-05_labeling/test/images',\
+quantify_all_images('/space/ariyanzarei/dry_rot/datasets/2022-01-13_labeling/test/images',\
     '/space/ariyanzarei/dry_rot/raw_data/dry_rot_all_images',\
     '/space/ariyanzarei/dry_rot/raw_data/dry_rot_all_labels',\
     '/space/ariyanzarei/dry_rot/image_results/segmentation',\
