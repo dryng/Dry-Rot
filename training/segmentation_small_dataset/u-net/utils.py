@@ -14,7 +14,7 @@ def save_checkpoint(state, epoch, loss, filename="unet_checkpoint.pth.tar", fold
         filename (str, optional): [description]. Defaults to "unet_checkpoint.pth.tar".
     """
     print("=> Saving checkpoint")
-    filename = f"{folder}/{loss}/{loss}_epoch_{epoch}_{filename}"
+    filename = f"{folder}/{loss}_epoch_{epoch}_{filename}"
     torch.save(state, filename)
 
 def load_checkpoint(checkpoint, model):
