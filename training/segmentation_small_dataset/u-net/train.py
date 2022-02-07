@@ -44,6 +44,13 @@ def train(loader, model, optimizer, loss_fn, scaler):
     
     for batch_idx, (data, targets) in enumerate(loop):
          data = data.to(device=DEVICE)
+         flattened = torch.flatten(data)
+         
+         min = torch.min(flattened)
+         max = torch.max(flattened)
+         print(min)
+         data = (data-min)/(max-min)
+        
          targets = targets.permute(0,3,1,2).to(device=DEVICE)
          
          # float16 to speed up training
@@ -99,11 +106,11 @@ def main():
             A.Rotate(limit=35, p=0.5),
             A.HorizontalFlip(p=0.3),
             A.VerticalFlip(p=0.3),
-            A.Normalize(
-                mean=[0.0, 0.0, 0.0],
-                std=[1.0, 1.0, 1.0],
-                max_pixel_value=255.0  
-            ),
+            # A.Normalize(
+            #     mean=[0.0, 0.0, 0.0],
+            #     std=[1.0, 1.0, 1.0],
+            #     max_pixel_value=255.0  
+            # ),
             ToTensorV2()
         ]
     )

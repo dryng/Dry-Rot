@@ -108,8 +108,9 @@ class ThresholdLayer(torch.nn.Module):
         # print(normalized_threshold)
         ones = torch.ones(x.size()).to(device=DEVICE)
         zeros = torch.zeros(x.size()).to(device=DEVICE)
-
         out = torch.where(x>normalized_threshold,ones,zeros)
+        print(x)
+        
         # out = torch.sigmoid(x - normalized_threshold) * (ones - zeros) + zeros
         
         # print(out)
@@ -185,9 +186,11 @@ class TGIUNET(nn.Module):
             x = self.decode[idx+1](concat_skip)
         
         output_unet = self.final_conv(x)
+        output_unet = torch.sigmoid(output_unet)   
+
         # output = torch.logical_and(TGI_mask,output_unet).int()
         output = torch.mul(output_unet,TGI_mask)
-
+        
         return output
     
 
@@ -201,8 +204,7 @@ class DiceLoss(nn.Module):
     def __init__(self, weight=None, size_average=True):
         super(DiceLoss, self).__init__()
 
-    def forward(self, inputs, targets, smooth=1):
-        inputs = torch.sigmoid(inputs)      
+    def forward(self, inputs, targets, smooth=1):   
         inputs = inputs.view(-1)
         targets = targets.view(-1)
         intersection = (inputs * targets).sum()                            
