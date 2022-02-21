@@ -1,12 +1,13 @@
+import sys
 import json
 import torch
+import torchvision
 import torch.nn as nn
 import torch.optim as optim
 import albumentations as A
 from albumentations.pytorch import ToTensorV2
 from tqdm import tqdm
-from model import UNET,TGIUNET, DiceLoss
-from utils import (
+from utils.segmentation_utils import (
     load_checkpoint,
     save_checkpoint,
     get_loaders,
@@ -14,18 +15,36 @@ from utils import (
     save_predictions_to_folder
 )
 from torch.utils.tensorboard import SummaryWriter
+from utils.earlyStopping import EarlyStopping
 
-LEARNING_RATE = 1e-4 # 3e-5 from 35 (34 from 0) on
-DEVICE = "cuda:1" if torch.cuda.is_available() else "cpu"
-BATCH_SIZE = 2 # 32  # change back to train
-NUM_EPOCHS = 1  # change back to 20
-NUM_WORKERS = 4
-IMAGE_HEIGHT = 256
-IMAGE_WIDTH = 256
-PIN_MEMORY = True
-LOAD_MODEL = False
-DICE_LOSS = True
+sys.path.append('../')
+from models.unet import UNET, TGIUNET, DiceLoss
+sys.path.remove('../')
 
+with open(sys.argv[1]) as json_data:
+    model_config = json.load(json_data)
+
+with open(sys.argv[2]) as json_data:
+    results_config = json.load(json_data)
+
+MODEL = model_config["MODEL"]
+LEARNING_RATE = model_config["LEARNING_RATE"]
+DEVICE = model_config["DEVICE"]
+BATCH_SIZE = model_config["BATCH_SIZE"]
+NUM_EPOCHS = model_config["NUM_EPOCHS"]
+PATIENCE  = model_config["PATIENCE"]
+NUM_WORKERS = model_config["NUM_WORKERS"]
+IMAGE_HEIGHT = model_config["IMAGE_HEIGHT"]
+IMAGE_WIDTH = model_config["IMAGE_WIDTH"]
+PIN_MEMORY = model_config["PIN_MEMORY"] in ("True")
+LOAD_MODEL = model_config["LOAD_MODEL"] in ("True")
+MODEL_CHECKPOINT = model_config["MODEL_CHECKPOINT"]
+DICE_LOSS = model_config["DICE_LOSS"] in ("True")
+
+SAVE_CHECKPOINT = results_config["SAVE_CHECKPOINT"]
+SAVE_METRICS = results_config["SAVE_METRICS"]
+
+earlyStopping = EarlyStopping(PATIENCE)
 writer = SummaryWriter(f'runs/u-net_{LEARNING_RATE}/')
 
 def train(loader, model, optimizer, loss_fn, scaler):
@@ -44,12 +63,12 @@ def train(loader, model, optimizer, loss_fn, scaler):
     
     for batch_idx, (data, targets) in enumerate(loop):
          data = data.to(device=DEVICE)
+         ''' -> no need to do this here if normalizing before tgi
          flattened = torch.flatten(data)
-         
          min = torch.min(flattened)
          max = torch.max(flattened)
-         print(min)
          data = (data-min)/(max-min)
+         '''
         
          targets = targets.permute(0,3,1,2).to(device=DEVICE)
          
@@ -106,11 +125,11 @@ def main():
             A.Rotate(limit=35, p=0.5),
             A.HorizontalFlip(p=0.3),
             A.VerticalFlip(p=0.3),
-            # A.Normalize(
-            #     mean=[0.0, 0.0, 0.0],
-            #     std=[1.0, 1.0, 1.0],
-            #     max_pixel_value=255.0  
-            # ),
+            A.Normalize(
+                mean=[0.0, 0.0, 0.0],
+                std=[1.0, 1.0, 1.0],
+                max_pixel_value=255.0  
+            ),
             ToTensorV2()
         ]
     )
@@ -127,13 +146,18 @@ def main():
     )
     
     print(f"Device: {DEVICE}. Device count: {torch.cuda.device_count()}")
-    # model = UNET(in_channels=3, out_channels=1).to(device=DEVICE)
-    model = TGIUNET(in_channels=3, out_channels=1).to(device=DEVICE)
-
-    if DICE_LOSS:
-        loss_fn = DiceLoss()
+    if MODEL == "UNET":
+        model = UNET(in_channels=3, out_channels=1).to(device=DEVICE)
+    elif MODEL == "TGIUNET":
+        model = TGIUNET(in_channels=3, out_channels=1).to(device=DEVICE)
     else:
-        loss_fn = nn.BCEWithLogitsLoss()
+        print("NO VALID MODEL TYPE PASSED")
+        return
+
+    #if DICE_LOSS:
+    loss_fn = DiceLoss()
+    #else:
+        #loss_fn = nn.BCEWithLogitsLoss()
     optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
     train_loader, val_loader = get_loaders(
         BATCH_SIZE,
@@ -144,17 +168,18 @@ def main():
     )
     
     if LOAD_MODEL:
-        load_checkpoint(torch.load("model_checkpoints_small/labels_v2/1e4/DICE/DICE_epoch_19_unet_checkpoint.pth.tar"), model)
-        # Remove for training
-        print(f"=> saving predictin images to folder")
-        save_predictions_to_folder(val_loader, model, epoch=20, folder="model_predictions/labels_v2", loss="DICE", max=50, device=DEVICE)
-        return
+        load_checkpoint(torch.load(MODEL_CHECKPOINT), model)
+
     scaler = torch.cuda.amp.GradScaler() # mixed percision for faster training 
 
     train_losses = []
     train_accuracies = []
+    train_dice = []
     val_losses = []
     val_accuracies = []
+    val_dice = []
+
+    min_val_loss = 0
     
     for epoch in range(NUM_EPOCHS):
         train_loss = train(train_loader, model, optimizer, loss_fn, scaler)
@@ -164,16 +189,13 @@ def main():
         train_accuracy, dice_score = check_metrics(train_loader, model, device=DEVICE)
         train_accuracies.append(train_accuracy.cpu().numpy().tolist())
         writer.add_scalar('Training Accuracy', train_accuracy, global_step=epoch)
+        writer.add_scalar('Training Dice Score', dice_score, global_step=epoch)
+        train_dice.append(dice_score.cpu().numpy().tolist())
 
         checkpoint = {
             "state_dict": model.state_dict(),
             "optimizer": optimizer.state_dict()
         }
-        
-        if DICE_LOSS:
-            save_checkpoint(checkpoint, epoch=epoch, loss="DICE", folder="model_checkpoints_small")
-        else:
-            save_checkpoint(checkpoint, epoch=epoch, loss="BCE", folder="model_checkpoints_small/labels_v2")
         
         val_loss = eval(val_loader, model, loss_fn, epoch)
         val_losses.append(val_loss)
@@ -182,18 +204,33 @@ def main():
         val_accuracy, dice_score = check_metrics(val_loader, model, device=DEVICE)
         val_accuracies.append(val_accuracy.cpu().numpy().tolist())
         writer.add_scalar('Validation Accuracy', val_accuracy, global_step=epoch)
+        writer.add_scalar('Validation Dice Score', dice_score, global_step=epoch)
+        val_dice.append(dice_score.cpu().numpy().tolist())
+
+        if val_loss < min_val_loss:
+            save_checkpoint(checkpoint, epoch=epoch, loss="DICE", folder=SAVE_CHECKPOINT)
+            min_val_loss = val_loss
+
+        if earlyStopping.training_completeV2(val_loss):
+            break
         #save_predictions_to_folder(val_loader, model, epoch, max=25, device=DEVICE)
         
+    
     # dump results to json file
     metrics = {
+        "minimum_loss" : earlyStopping.minimum_loss,
+        "best_epoch" : earlyStopping.best_epoch,
         "train_losses" : train_losses,
         "train_accuracies" : train_accuracies,
+        "train_dice" : train_dice,
         "val_losses" : val_losses,
-        "val_accuracies" : val_accuracies
+        "val_accuracies" : val_accuracies,
+        "val_dice" : val_dice,
     }
 
-    with open("../../metrics/segmentation/u-net/metrics.json", "w") as metrics_file:
+    with open(f"{SAVE_METRICS}/metrics.json", "w") as metrics_file:
         json.dump(metrics, metrics_file)
+
 
 if __name__ == "__main__":
     main()

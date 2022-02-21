@@ -92,6 +92,7 @@ class UNET(nn.Module):
             x = self.decode[idx+1](concat_skip)
             
         return self.final_conv(x)
+        
     
 class ThresholdLayer(torch.nn.Module):
     def __init__(self):
@@ -99,8 +100,14 @@ class ThresholdLayer(torch.nn.Module):
         self.threshold = nn.Parameter(torch.rand(1), requires_grad=True)
         
     def forward(self, x):
+        #print(x)
         x = x[:,1,:,:]-(0.39*x[:,0,:,:])-(0.61*x[:,2,:,:])
         # x = torch.add(x[:,1,:,:],torch.add(torch.neg(torch.mul(x[:,0,:,:],0.39)),torch.neg(torch.mul(x[:,2,:,:],0.61))))
+        flattened = torch.flatten(x)
+        min = torch.min(x)
+        max = torch.max(x)
+        x = (x-min)/(max-min)
+        #print(x)
 
         x=torch.unsqueeze(x,dim=1)
         normalized_threshold = torch.sigmoid(self.threshold)
@@ -109,7 +116,7 @@ class ThresholdLayer(torch.nn.Module):
         ones = torch.ones(x.size()).to(device=DEVICE)
         zeros = torch.zeros(x.size()).to(device=DEVICE)
         out = torch.where(x>normalized_threshold,ones,zeros)
-        print(x)
+        #print(x)
         
         # out = torch.sigmoid(x - normalized_threshold) * (ones - zeros) + zeros
         
