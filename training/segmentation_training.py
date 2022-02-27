@@ -43,9 +43,10 @@ DICE_LOSS = model_config["DICE_LOSS"] in ("True")
 
 SAVE_CHECKPOINT = results_config["SAVE_CHECKPOINT"]
 SAVE_METRICS = results_config["SAVE_METRICS"]
+SAVE_TB_LOGS = results_config["SAVE_TB_LOGS"]
 
 earlyStopping = EarlyStopping(PATIENCE)
-writer = SummaryWriter(f'runs/u-net_{LEARNING_RATE}/')
+writer = SummaryWriter(f"{SAVE_TB_LOGS}")
 
 def train(loader, model, optimizer, loss_fn, scaler):
     """[summary]
@@ -63,13 +64,6 @@ def train(loader, model, optimizer, loss_fn, scaler):
     
     for batch_idx, (data, targets) in enumerate(loop):
          data = data.to(device=DEVICE)
-         ''' -> no need to do this here if normalizing before tgi
-         flattened = torch.flatten(data)
-         min = torch.min(flattened)
-         max = torch.max(flattened)
-         data = (data-min)/(max-min)
-         '''
-        
          targets = targets.permute(0,3,1,2).to(device=DEVICE)
          
          # float16 to speed up training
@@ -121,7 +115,6 @@ def eval(loader, model, loss_fn, epoch):
 def main():
     train_transform = A.Compose(
         [
-            # data agumentation? -> already have 200K samples
             A.Rotate(limit=35, p=0.5),
             A.HorizontalFlip(p=0.3),
             A.VerticalFlip(p=0.3),
@@ -144,20 +137,19 @@ def main():
             ToTensorV2()
         ]
     )
-    
+
     print(f"Device: {DEVICE}. Device count: {torch.cuda.device_count()}")
     if MODEL == "UNET":
+        print(f"Using UNET Model")
         model = UNET(in_channels=3, out_channels=1).to(device=DEVICE)
     elif MODEL == "TGIUNET":
+        print(f"Using TGIUNET Model")
         model = TGIUNET(in_channels=3, out_channels=1).to(device=DEVICE)
     else:
         print("NO VALID MODEL TYPE PASSED")
         return
 
-    #if DICE_LOSS:
     loss_fn = DiceLoss()
-    #else:
-        #loss_fn = nn.BCEWithLogitsLoss()
     optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
     train_loader, val_loader = get_loaders(
         BATCH_SIZE,
@@ -179,7 +171,7 @@ def main():
     val_accuracies = []
     val_dice = []
 
-    min_val_loss = 0
+    min_val_loss = float('inf')
     
     for epoch in range(NUM_EPOCHS):
         train_loss = train(train_loader, model, optimizer, loss_fn, scaler)
@@ -213,7 +205,6 @@ def main():
 
         if earlyStopping.training_completeV2(val_loss):
             break
-        #save_predictions_to_folder(val_loader, model, epoch, max=25, device=DEVICE)
         
     
     # dump results to json file

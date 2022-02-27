@@ -1,6 +1,6 @@
+// save tensorboard logs. read me for expirment ids
+
 {
     "SAVE_CHECKPOINT" : "/space/dryngler/dry_rot/experiments/check_dice_threshold_Feb20,22/checkpoints",
-    # save tensorboard logs
-    # read me for expirment ids
     "SAVE_METRICS": "/space/dryngler/dry_rot/experiments/check_dice_threshold_Feb20,22/metrics"
 }

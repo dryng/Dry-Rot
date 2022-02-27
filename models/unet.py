@@ -212,6 +212,7 @@ class DiceLoss(nn.Module):
         super(DiceLoss, self).__init__()
 
     def forward(self, inputs, targets, smooth=1):   
+        inputs = torch.sigmoid(inputs) # not needed for TGI
         inputs = inputs.view(-1)
         targets = targets.view(-1)
         intersection = (inputs * targets).sum()                            
