@@ -2,14 +2,14 @@
     "MODEL" : "UNET",
     "LEARNING_RATE" : 3e-4,
     "DEVICE": "cuda:1",
-    "BATCH_SIZE" : 1,
-    "NUM_EPOCHS" : 40,
+    "BATCH_SIZE" : 32,
+    "NUM_EPOCHS" : 100,
     "PATIENCE" : 10,
     "NUM_WORKERS" : 4,
     "IMAGE_HEIGHT" : 256,
     "IMAGE_WIDTH" : 256,
     "PIN_MEMORY" : "True",
-    "LOAD_MODEL" : "True",
-    "MODEL_CHECKPOINT" : "/space/dryngler/dry_rot/experiments/clean_build_Feb27,22/checkpoints/DICE_epoch_37_unet_checkpoint.pth.tar",
+    "LOAD_MODEL" : "False",
+    "MODEL_CHECKPOINT" : "",
     "DICE_LOSS" : "True"
 }

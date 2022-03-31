@@ -93,6 +93,7 @@ def eval(loader, model, loss_fn, epoch):
         scaler ([type]): for mixed precision
         epoch ([type])): current epoch to track total steps for tensorboard
     """
+    model.eval()
     loop = tqdm(loader)
     length = len(loader)
     running_loss = 0
@@ -109,6 +110,7 @@ def eval(loader, model, loss_fn, epoch):
          loop.set_postfix(loss=loss.item())
          running_loss += loss.item()
 
+    model.train()
     return running_loss / len(loader)
 
 
