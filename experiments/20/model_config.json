@@ -1,0 +1,16 @@
+{
+    "MODEL" : "UNET",
+    "LEARNING_RATE" : 0.003,
+    "DEVICE": "cuda:1",
+    "BATCH_SIZE" : 16,
+    "NUM_EPOCHS" : 150,
+    "PATIENCE" : 20,
+    "NUM_WORKERS" : 4,
+    "IMAGE_HEIGHT" : 256,
+    "IMAGE_WIDTH" : 256,
+    "PIN_MEMORY" : "True",
+    "LOAD_MODEL" : "False",
+    "MODEL_CHECKPOINT" : "",
+    "DICE_LOSS" : "True",
+    "DATASET_PATH" : "/space/dryngler/dry_rot_data/data_exploration/small_segmentation_dataset_04_18.h5"
+}

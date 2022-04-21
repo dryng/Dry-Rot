@@ -12,7 +12,7 @@ class DryRotDataset(Dataset):
         path: path to h5 file containing the data
     """
     
-    def __init__(self, dset=0, path='/space/dryngler/dry_rot_data/datasets/small_segmentation_dataset_v2.h5', transform=None):
+    def __init__(self, dset=0, path='/space/dryngler/dry_rot_data/data_exploration/small_segmentation_dataset_3_22_22.h5', transform=None):
         self.dset = dset
         self.path = path
         self.transform = transform

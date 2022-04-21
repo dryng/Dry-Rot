@@ -1,3 +1,4 @@
+import os
 import sys
 import json
 import torch
@@ -40,12 +41,23 @@ PIN_MEMORY = model_config["PIN_MEMORY"] in ("True")
 LOAD_MODEL = model_config["LOAD_MODEL"] in ("True")
 MODEL_CHECKPOINT = model_config["MODEL_CHECKPOINT"]
 DICE_LOSS = model_config["DICE_LOSS"] in ("True")
+DATASET_PATH = ""
+if "DATASET_PATH" in model_config:
+    DATASET_PATH = model_config["DATASET_PATH"]
 
 SAVE_CHECKPOINT = results_config["SAVE_CHECKPOINT"]
 SAVE_METRICS = results_config["SAVE_METRICS"]
 SAVE_TB_LOGS = results_config["SAVE_TB_LOGS"]
 
 earlyStopping = EarlyStopping(PATIENCE)
+
+if not os.path.exists(SAVE_TB_LOGS):
+    os.makedirs(SAVE_TB_LOGS)
+if not os.path.exists(SAVE_CHECKPOINT):
+    os.makedirs(SAVE_CHECKPOINT)
+if not os.path.exists(SAVE_METRICS):
+    os.makedirs(SAVE_METRICS)
+
 writer = SummaryWriter(f"{SAVE_TB_LOGS}")
 
 def train(loader, model, optimizer, loss_fn, scaler):
@@ -153,13 +165,23 @@ def main():
 
     loss_fn = DiceLoss()
     optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
-    train_loader, val_loader = get_loaders(
-        BATCH_SIZE,
-        train_transform,
-        val_transforms,
-        NUM_WORKERS,
-        PIN_MEMORY
-    )
+    if DATASET_PATH != "":
+        train_loader, val_loader = get_loaders(
+            BATCH_SIZE,
+            train_transform,
+            val_transforms,
+            NUM_WORKERS,
+            PIN_MEMORY,
+            DATASET_PATH
+        )
+    else:
+        train_loader, val_loader = get_loaders(
+            BATCH_SIZE,
+            train_transform,
+            val_transforms,
+            NUM_WORKERS,
+            PIN_MEMORY
+        )
     
     if LOAD_MODEL:
         load_checkpoint(torch.load(MODEL_CHECKPOINT), model)

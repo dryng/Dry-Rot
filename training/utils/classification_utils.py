@@ -1,12 +1,15 @@
+import sys
 import torch
 import torchvision
 import numpy as np
 import cv2 as cv
 from torch.utils.data import DataLoader
 from torchmetrics import IoU
-from dataset import DryRotDataset
+sys.path.append('../')
+from dataset.classification_dataset import DryRotDataset
+sys.path.remove('../')
 
-def save_checkpoint(state, epoch, model, filename="checkpoint.pth.tar", folder="model_checkpoints"):
+def save_checkpoint(state, epoch, filename="checkpoint.pth.tar", folder="model_checkpoints"):
     """[summary]
 
     Args:
@@ -14,7 +17,7 @@ def save_checkpoint(state, epoch, model, filename="checkpoint.pth.tar", folder="
         filename (str, optional): [description]. Defaults to "unet_checkpoint.pth.tar".
     """
     print("=> Saving checkpoint")
-    filename = f"{folder}/{model}/epoch_{epoch}_{filename}"
+    filename = f"{folder}/epoch_{epoch}_{filename}"
     torch.save(state, filename)
 
 def load_checkpoint(checkpoint, model):

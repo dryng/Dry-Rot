@@ -11,20 +11,60 @@ from PIL import Image
 from torchsummary import summary    
 from albumentations.pytorch import ToTensorV2
 from tqdm import tqdm
-from custom_mobilenet_v3_small import customMNSmall
-from utils import (
+from utils.classification_utils import (
     load_checkpoint,
     save_checkpoint,
     get_loaders,
     check_metrics,
     save_predictions_to_folder
 )
+
 from torch.utils.tensorboard import SummaryWriter
+from utils.earlyStopping import EarlyStopping
 
-sys.path.append('../utils')
+sys.path.append('../models')
+from custom_mobilenet_v3_small import customMNSmall
+sys.path.remove('../models')
 
-from earlyStopping import EarlyStopping
+with open(sys.argv[1]) as json_data:
+    model_config = json.load(json_data)
 
+with open(sys.argv[2]) as json_data:
+    results_config = json.load(json_data)
+
+MODEL = model_config["MODEL"]
+LEARNING_RATE = model_config["LEARNING_RATE"]
+DEVICE = model_config["DEVICE"]
+BATCH_SIZE = model_config["BATCH_SIZE"]
+NUM_EPOCHS = model_config["NUM_EPOCHS"]
+PATIENCE  = model_config["PATIENCE"]
+NUM_WORKERS = model_config["NUM_WORKERS"]
+IMAGE_HEIGHT = model_config["IMAGE_HEIGHT"]
+IMAGE_WIDTH = model_config["IMAGE_WIDTH"]
+PIN_MEMORY = model_config["PIN_MEMORY"] in ("True")
+LOAD_MODEL = model_config["LOAD_MODEL"] in ("True")
+MODEL_CHECKPOINT = model_config["MODEL_CHECKPOINT"]
+DICE_LOSS = model_config["DICE_LOSS"] in ("True")
+DATASET_PATH = ""
+if "DATASET_PATH" in model_config:
+    DATASET_PATH = model_config["DATASET_PATH"]
+
+SAVE_CHECKPOINT = results_config["SAVE_CHECKPOINT"]
+SAVE_METRICS = results_config["SAVE_METRICS"]
+SAVE_TB_LOGS = results_config["SAVE_TB_LOGS"]
+
+earlyStopping = EarlyStopping(PATIENCE)
+
+if not os.path.exists(SAVE_TB_LOGS):
+    os.makedirs(SAVE_TB_LOGS)
+if not os.path.exists(SAVE_CHECKPOINT):
+    os.makedirs(SAVE_CHECKPOINT)
+if not os.path.exists(SAVE_METRICS):
+    os.makedirs(SAVE_METRICS)
+
+writer = SummaryWriter(f"{SAVE_TB_LOGS}")
+
+'''
 GPU_NUM = sys.argv[1]
 LEARNING_RATE = 1e-3
 DEVICE = f"cuda:{GPU_NUM}" if torch.cuda.is_available() else "cpu"  #cuda:1
@@ -37,8 +77,7 @@ IMAGE_WIDTH = 256
 PIN_MEMORY = True
 LOAD_MODEL = False
 MODEL = sys.argv[2]
-
-writer = SummaryWriter(f'runs/{MODEL}_{LEARNING_RATE}/')
+'''
 
 def train(loader, model, optimizer, loss_fn, scaler, epoch):
     """[summary]
@@ -72,7 +111,6 @@ def train(loader, model, optimizer, loss_fn, scaler, epoch):
          loop.set_postfix(loss=loss.item())
          running_loss += loss.item()
 
-         # writer.add_scalar('Training Loss', loss.item(), global_step=((epoch * length) + batch_idx))
     return running_loss / length
 
 
@@ -87,6 +125,7 @@ def eval(loader, model, loss_fn, epoch):
         scaler ([type]): for mixed precision
         epoch ([type])): current epoch to track total steps for tensorboard
     """
+    model.eval()
     loop = tqdm(loader)
     length = len(loader)
     running_loss = 0
@@ -104,7 +143,7 @@ def eval(loader, model, loss_fn, epoch):
          running_loss += loss.item()
 
          # writer.add_scalar('Validation Loss', loss.item(), global_step=((epoch * length) + batch_idx))
-    
+    model.train()
     return running_loss / length
 
 
@@ -152,10 +191,8 @@ def main():
         untrained = models.mobilenet_v3_small(pretrained=False)
         model = customMNSmall(untrained)
     elif MODEL == "mobilenet_v3_large":
-        # collapsing neurons to fast i think -> add more layers at end 
         model = models.mobilenet_v3_large(pretrained=True)
         num_ftrs = model.classifier[3].in_features
-        print(f"NUM FTRS: {num_ftrs}")
         model.classifier[3] = nn.Linear(num_ftrs, 1)
     elif MODEL == "efficient_net_b3":
         model = models.efficientnet_b3(pretrained=True)
@@ -167,33 +204,39 @@ def main():
         model.classifier[1] = nn.Linear(num_ftrs, 1)
     #print(f"MODEL: {model}")
     
-    # model = nn.DataParallel(model)
     model = model.to(device=DEVICE)
-    # print(summary(model, (3, 256, 256), BATCH_SIZE))
-    # return
     loss_fn = nn.BCEWithLogitsLoss()
     optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
-    train_loader, val_loader = get_loaders(
-        BATCH_SIZE,
-        train_transform,
-        val_transforms,
-        NUM_WORKERS,
-        PIN_MEMORY
-    )
+    if DATASET_PATH != "":
+        train_loader, val_loader = get_loaders(
+            BATCH_SIZE,
+            train_transform,
+            val_transforms,
+            NUM_WORKERS,
+            PIN_MEMORY,
+            DATASET_PATH
+        )
+    else:
+        train_loader, val_loader = get_loaders(
+            BATCH_SIZE,
+            train_transform,
+            val_transforms,
+            NUM_WORKERS,
+            PIN_MEMORY
+        )
     
     if LOAD_MODEL:
-        print(f"Model: {MODEL}")
-        load_checkpoint(torch.load(f"model_checkpoints/{MODEL}/epoch_{START_EPOCH - 1}_checkpoint.pth.tar"), model)
-        check_metrics(val_loader, model, BATCH_SIZE, device=DEVICE)
-        #print(f"=> saving predictin images to folder")
-        #save_predictions_to_folder(val_loader, model, epoch=20, folder="model_predictions/labels_v2", loss="DICE", max=50, device=DEVICE)
-        return
+        print(f"Loading Model From Checkpoint")
+        load_checkpoint(torch.load(MODEL_CHECKPOINT), model)
+       
     scaler = torch.cuda.amp.GradScaler() # mixed percision for faster training 
 
     train_losses = []
     train_accuracies = []
     val_losses = []
     val_accuracies = []
+
+    '''
     best_epoch = None
     global_val_loss = float('inf')
     earlyStopping = EarlyStopping(patience=10)
@@ -202,8 +245,11 @@ def main():
     images = images.to(device=DEVICE)
     writer.add_graph(model, images)
     writer.close()
+    '''
 
-    for epoch in range(START_EPOCH, START_EPOCH + NUM_EPOCHS):
+    min_val_loss = float('inf')
+
+    for epoch in range(NUM_EPOCHS):
         train_loss = train(train_loader, model, optimizer, loss_fn, scaler, epoch)
         train_losses.append(train_loss)
         writer.add_scalar('Training Loss', train_loss, global_step=epoch)
@@ -217,8 +263,6 @@ def main():
             "optimizer": optimizer.state_dict()
         }
 
-        save_checkpoint(checkpoint, epoch=epoch, model=MODEL, folder="/space/dryngler/classification/model_checkpoints")
-
         val_loss = eval(val_loader, model, loss_fn, epoch)
         val_losses.append(val_loss)
         writer.add_scalar('Validation Loss', val_loss, global_step=epoch)
@@ -227,29 +271,18 @@ def main():
         val_accuracies.append(val_accuracy.cpu().numpy().tolist())
         writer.add_scalar('Validation Accuracy', val_accuracy, global_step=epoch)
 
-        # if val_loss < global_val_loss:
-            # best_epoch = epoch
-            # save_checkpoint(checkpoint, epoch=epoch, model=MODEL, folder="model_checkpoints")
-        
-        if earlyStopping.training_complete(val_loss):
-           best_epoch = earlyStopping.best_epoch
-           old_fn = f"model_checkpoints/{MODEL}/epoch_{best_epoch}_checkpoint.pth.tar"
-           new_fn = f"model_checkpoints/{MODEL}/BEST_EPOCH_{best_epoch}_checkpoint.pth.tar"
-           # os.rename(old_fn, new_fn)
-           print(f'Done training at epoch: {epoch}')
-           print(f'Best Epoch: {earlyStopping.best_epoch}')
-           break
-    
-    # only save up to best epoch
-    # if best_epoch is not None:
-        # train_losses = train_losses[:best_epoch + 1]
-        # train_accuracies = train_accuracies[:best_epoch + 1]
-        # val_losses = val_losses[:best_epoch + 1]
-        # val_accuracies = val_accuracies[:best_epoch + 1]
+        if val_loss < min_val_loss:
+            save_checkpoint(checkpoint, epoch, folder=SAVE_CHECKPOINT)
+            min_val_loss = val_loss
+
+        if earlyStopping.training_completeV2(val_loss):
+            break
+
     _, precision, recall, f1_score = check_metrics(val_loader, model, BATCH_SIZE, device=DEVICE)
 
     metrics = {
-        "best_epoch": best_epoch,
+        "minimum_loss" : earlyStopping.minimum_loss,
+        "best_epoch" : earlyStopping.best_epoch,
         "train_losses" : train_losses,
         "train_accuracies" : train_accuracies,
         "val_losses" : val_losses,
@@ -259,7 +292,7 @@ def main():
         "f1_score" : f1_score.cpu().numpy().tolist()
     }
 
-    with open(f"../../metrics/classification/{MODEL}/metrics.json", "w") as metrics_file:
+    with open(f"{SAVE_METRICS}/metrics.json", "w") as metrics_file:
         json.dump(metrics, metrics_file)
 
 if __name__ == "__main__":
