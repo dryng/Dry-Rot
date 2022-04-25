@@ -100,7 +100,7 @@ def quantify_all_images(path_patches,path_images,path_image_labels,save_path,mod
     files = list(set([f.split('-')[0] for f in files]))
     print(f":: Total images: {len(files)}")
 
-    model = ClassificationModel(model_name,checkpoints_path="/work/dryngler/dry_rot/Dry-Rot/inference/")
+    model = ClassificationModel(model_name,checkpoints_path="/space/dryngler/dry_rot/experiments/15/checkpoints/epoch_7_checkpoint.pth.tar")
 
     save_path = os.path.join(save_path,model_name)
     if not os.path.exists(save_path):
@@ -126,7 +126,7 @@ def quantify_all_images(path_patches,path_images,path_image_labels,save_path,mod
 
     print(f"Correlation between the Ground Truth and prediction quantification values: {np.corrcoef(result_array[:,0],result_array[:,1])[0,1]}")
 
-quantify_all_images('/space/ariyanzarei/dry_rot/datasets/2022-01-13_labeling/test/images',\
+quantify_all_images('/space/ariyanzarei/dry_rot/datasets/2022-04-18_labeling/test/images',\
     '/space/ariyanzarei/dry_rot/raw_data/dry_rot_all_images',\
     '/space/ariyanzarei/dry_rot/raw_data/dry_rot_all_labels',\
     '/space/ariyanzarei/dry_rot/image_results/classification',\

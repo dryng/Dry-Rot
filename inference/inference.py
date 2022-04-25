@@ -1,7 +1,9 @@
 import torch
 import torch.nn as nn
 import torchvision.models as models
-from custom_models import custom_mobilenet_v3_small, unet
+import sys
+sys.path.append("..")
+from models import unet
 from utils import load_checkpoint, numpy_to_torch
 
 
@@ -19,7 +21,7 @@ class SegmentationModel:
 
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.model = unet.UNET(in_channels=3, out_channels=1).to(self.device)
-        load_checkpoint(torch.load(f"{checkpoints_path}checkpoints/unet.pth.tar"), self.model)
+        load_checkpoint(torch.load(checkpoints_path), self.model)
     
     def predict(self, image):
         """[summary]
@@ -81,7 +83,7 @@ class ClassificationModel:
             model = models.efficientnet_b3(pretrained=True)
             num_ftrs = model.classifier[1].in_features
             model.classifier[1] = nn.Linear(num_ftrs, 1)
-            load_checkpoint(torch.load(f"{checkpoints_path}checkpoints/efficient_net_b3.pth.tar"), model)
+            load_checkpoint(torch.load(checkpoints_path), model)
         elif model_name == "efficient_net_b4":
             model = models.efficientnet_b4(pretrained=True)
             num_ftrs = model.classifier[1].in_features
