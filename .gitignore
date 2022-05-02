@@ -1,6 +1,5 @@
 inference/checkpoints/
 *.pyc
-*.txt
 runs/
 classification_small_dataset/model_checkpoints/
 classification_small_dataset/runs

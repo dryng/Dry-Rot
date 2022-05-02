@@ -1,0 +1,5 @@
+{
+    "SAVE_CHECKPOINT" : "/space/dryngler/dry_rot/experiments/26/checkpoints",
+    "SAVE_METRICS": "/space/dryngler/dry_rot/experiments/26/metrics", 
+    "SAVE_TB_LOGS" : "/space/dryngler/dry_rot/experiments/26/logs" 
+}

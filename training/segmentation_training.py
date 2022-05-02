@@ -30,6 +30,9 @@ with open(sys.argv[2]) as json_data:
 
 MODEL = model_config["MODEL"]
 LEARNING_RATE = model_config["LEARNING_RATE"]
+OPTIMIZER = "adam"
+if "OPTIMIZER" in model_config:
+    OPTIMIZER = model_config["OPTIMIZER"]
 DEVICE = model_config["DEVICE"]
 BATCH_SIZE = model_config["BATCH_SIZE"]
 NUM_EPOCHS = model_config["NUM_EPOCHS"]
@@ -164,7 +167,11 @@ def main():
         return
 
     loss_fn = DiceLoss()
-    optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
+    if OPTIMIZER == "adam":
+        optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
+    elif OPTIMIZER == "sgd":
+        print("Optimizer is sgd")
+        optimizer = optim.SGD(model.parameters(), lr=LEARNING_RATE)
     if DATASET_PATH != "":
         train_loader, val_loader = get_loaders(
             BATCH_SIZE,
